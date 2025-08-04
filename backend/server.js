@@ -33,17 +33,23 @@ app.get('/', (req, res) => {
 // ======================== LOGIN ========================
 app.post('/login', async (req, res) => {
   try {
+    console.log('Login API hit'); // ✅ 1
+
     const { email, password } = req.body;
+    console.log('Email:', email, 'Password:', password); // ✅ 2
+
     const [users] = await pool.query(
       'SELECT * FROM users WHERE email = ? AND password = ?',
       [email, password]
     );
+    console.log('Users result:', users); // ✅ 3
 
     if (users.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const user = users[0];
+    console.log('Logged-in user:', user); // ✅ 4
 
     if (user.role === 'employee') {
       const [balance] = await pool.query(
@@ -55,10 +61,11 @@ app.post('/login', async (req, res) => {
 
     res.json(user);
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('❌ Login error:', err); // ✅ show full error
     res.status(500).json({ error: 'Database error' });
   }
 });
+
 
 // ======================== EMPLOYEE ========================
 app.get('/employee/leave-balance/:userId', async (req, res) => {
@@ -103,65 +110,43 @@ app.post('/employee/apply-leave', async (req, res) => {
   try {
     const { userId, leaveType, fromDate, toDate, reason } = req.body;
 
+    // Basic field validation
     if (!userId || !leaveType || !fromDate || !toDate || !reason) {
       console.log("Missing fields in request:", req.body);
       return res.status(400).json({ error: 'All fields (userId, leaveType, fromDate, toDate, reason) are required.' });
     }
 
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    const days = Math.ceil((to - from) / (1000 * 60 * 60 * 24)) + 1;
-
-    if (days <= 0) {
-      return res.status(400).json({ error: 'Invalid date range' });
-    }
-
-    // ✅ Call the get_remaining_leave function
-    const [[result]] = await pool.query('SELECT get_remaining_leave(?, ?) AS remaining', [userId, leaveType]);
-
-    const available = result.remaining;
-
-    if (available === null || available === -1) {
-      return res.status(400).json({ error: `Invalid leave type: ${leaveType}` });
-    }
-
-    if (days > available) {
-      return res.status(400).json({
-        error: `Insufficient ${leaveType} leave balance. Available: ${available}, Requested: ${days}`
-      });
-    }
-
-    // ✅ Insert leave request
+    // Call the stored procedure
     await pool.query(
-      `INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, status) 
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      'CALL apply_leave(?, ?, ?, ?, ?)',
       [userId, leaveType, fromDate, toDate, reason]
     );
 
     res.status(200).json({ message: 'Leave request submitted successfully.' });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to apply for leave. Please try again later.' });
-  }
-});
-
-
-    // Apply leave through stored procedure
-    await pool.query(
-      'CALL apply_leave(?, ?, ?, ?, ?)',
-      [userId, leaveType, fromDate, toDate, reason]
-    );
-
-    res.json({ message: 'Leave applied successfully' });
-  } catch (err) {
     console.error('Apply leave error:', err);
     res.status(400).json({ error: err.sqlMessage || 'Failed to apply leave' });
   }
 });
 
+
+
+//     // Apply leave through stored procedure
+//     await pool.query(
+//       'CALL apply_leave(?, ?, ?, ?, ?)',
+//       [userId, leaveType, fromDate, toDate, reason]
+//     );
+
+//     res.json({ message: 'Leave applied successfully' });
+//   } catch (err) {
+//     console.error('Apply leave error:', err);
+//     res.status(400).json({ error: err.sqlMessage || 'Failed to apply leave' });
+//   }
+// });
+
 // ======================== ADMIN ========================
-app.get('/admin/leave-requests', async (req, res) => {
+app.get('/admin/leave-requests', async (req, res) => {  
   try {
     const [requests] = await pool.query(`
       SELECT 
