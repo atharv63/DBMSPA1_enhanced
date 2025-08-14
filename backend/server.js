@@ -25,7 +25,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Health check
+
 app.get('/', (req, res) => {
   res.send('Leave Management API running.');
 });
@@ -33,23 +33,23 @@ app.get('/', (req, res) => {
 // ======================== LOGIN ========================
 app.post('/login', async (req, res) => {
   try {
-    console.log('Login API hit'); // ✅ 1
+    console.log('Login API hit');
 
     const { email, password } = req.body;
-    console.log('Email:', email, 'Password:', password); // ✅ 2
+    console.log('Email:', email, 'Password:', password);
 
     const [users] = await pool.query(
       'SELECT * FROM users WHERE email = ? AND password = ?',
       [email, password]
     );
-    console.log('Users result:', users); // ✅ 3
+    console.log('Users result:', users);
 
     if (users.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const user = users[0];
-    console.log('Logged-in user:', user); // ✅ 4
+    console.log('Logged-in user:', user);
 
     if (user.role === 'employee') {
       const [balance] = await pool.query(
@@ -61,7 +61,7 @@ app.post('/login', async (req, res) => {
 
     res.json(user);
   } catch (err) {
-    console.error('❌ Login error:', err); // ✅ show full error
+    console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
@@ -110,13 +110,13 @@ app.post('/employee/apply-leave', async (req, res) => {
   try {
     const { userId, leaveType, fromDate, toDate, reason } = req.body;
 
-    // Basic field validation
+
     if (!userId || !leaveType || !fromDate || !toDate || !reason) {
       console.log("Missing fields in request:", req.body);
       return res.status(400).json({ error: 'All fields (userId, leaveType, fromDate, toDate, reason) are required.' });
     }
 
-    // Call the stored procedure
+
     await pool.query(
       'CALL apply_leave(?, ?, ?, ?, ?)',
       [userId, leaveType, fromDate, toDate, reason]
@@ -131,22 +131,8 @@ app.post('/employee/apply-leave', async (req, res) => {
 });
 
 
-
-//     // Apply leave through stored procedure
-//     await pool.query(
-//       'CALL apply_leave(?, ?, ?, ?, ?)',
-//       [userId, leaveType, fromDate, toDate, reason]
-//     );
-
-//     res.json({ message: 'Leave applied successfully' });
-//   } catch (err) {
-//     console.error('Apply leave error:', err);
-//     res.status(400).json({ error: err.sqlMessage || 'Failed to apply leave' });
-//   }
-// });
-
 // ======================== ADMIN ========================
-app.get('/admin/leave-requests', async (req, res) => {  
+app.get('/admin/leave-requests', async (req, res) => {
   try {
     const [requests] = await pool.query(`
       SELECT 
@@ -198,35 +184,27 @@ app.post('/admin/reject-leave', async (req, res) => {
   }
 });
 
+
 app.get('/admin/employees', async (req, res) => {
   try {
-    const [employees] = await pool.query(
-      'SELECT id, name, email, role FROM users'
-    );
+    const [employees] = await pool.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.role,
+        COUNT(lr.id) AS leaves_taken
+      FROM users u
+      LEFT JOIN leave_requests lr ON u.id = lr.user_id
+      GROUP BY u.id, u.name, u.email, u.role
+    `);
     res.json(employees);
   } catch (err) {
+    console.error('Error in /admin/employees:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/admin/employees', async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-    const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [name, email, password, role]
-    );
-
-    await pool.query(
-      'INSERT INTO leave_balance (user_id) VALUES (?)',
-      [result.insertId]
-    );
-
-    res.json({ id: result.insertId });
-  } catch (err) {
-    res.status(500).json({ error: err.sqlMessage });
-  }
-});
 
 app.delete('/admin/employees/:id', async (req, res) => {
   try {
@@ -237,7 +215,47 @@ app.delete('/admin/employees/:id', async (req, res) => {
   }
 });
 
-// ======================== START SERVER ========================
+
 app.listen(port, () => {
-  console.log(`✅ Server running at http://localhost:${port}`);
+  console.log(` Server running at http://localhost:${port}`);
 });
+
+app.get('/admin/leave-balance-summary-report', (req, res) => {
+  const sql = `
+    SELECT 
+    u.name AS employee_name,
+    lb.sick_leave,
+    (10 - lb.sick_leave) AS sick_remaining,
+    lb.casual_leave,
+    (10 - lb.casual_leave) AS casual_remaining,
+    lb.paid_leave,
+    (10 - lb.paid_leave) AS paid_remaining,
+    lb.maternity_leave,
+    (10 - lb.maternity_leave) AS maternity_remaining
+FROM users u
+LEFT JOIN leave_balance lb 
+    ON u.id = lb.user_id;
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching leave balance summary:", err.sqlMessage);
+      return res.status(500).json({ error: err.sqlMessage });
+    }
+    res.json(results);
+  });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+

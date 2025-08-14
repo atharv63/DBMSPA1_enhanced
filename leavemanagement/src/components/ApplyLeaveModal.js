@@ -2,192 +2,201 @@ import React, { useState } from 'react';
 
 function ApplyLeaveModal({ balance, onClose, onSubmit }) {
   const [form, setForm] = useState({
-    leave_type: 'sick',
+    leave_type: 'sick', // default ENUM value
     from_date: '',
     to_date: '',
     reason: ''
   });
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Handle form changes
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // Handle submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
-
-    try {
-      if (!form.from_date || !form.to_date || !form.reason) {
-        throw new Error('All fields are required');
-      }
-
-      const fromDate = new Date(`${form.from_date}T00:00:00`);
-      const toDate = new Date(`${form.to_date}T00:00:00`);
-
-      if (fromDate.getTime() > toDate.getTime()) {
-        throw new Error('From date cannot be after to date');
-      }
-
-      const days = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
-
-      let remaining;
-      switch (form.leave_type) {
-        case 'sick':
-          remaining = balance?.sick_leave || 0;
-          break;
-        case 'casual':
-          remaining = balance?.casual_leave || 0;
-          break;
-        case 'paid':
-          remaining = balance?.paid_leave || 0;
-          break;
-        case 'maternity':
-          remaining = balance?.maternity_leave || 0;
-          break;
-        default:
-          remaining = 0;
-      }
-
-      if (days > remaining) {
-        throw new Error(
-          `Insufficient ${form.leave_type} leave balance. Available: ${remaining}, Requested: ${days}`
-        );
-      }
-
-      await onSubmit({
-        leave_type: form.leave_type,
-        from_date: form.from_date,
-        to_date: form.to_date,
-        reason: form.reason,
-        days
-      });
-
-      onClose();
-    } catch (err) {
-      const backendMessage =
-        err?.response?.data?.error || err?.message || String(err);
-      setError(backendMessage);
-    } finally {
-      setIsSubmitting(false);
+    if (!form.from_date || !form.to_date || !form.reason) {
+      setError('All fields are required');
+      return;
     }
+    setError('');
+    onSubmit(form);
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  // Get only leave type keys from the balance object
+  const leaveTypes = Object.keys(balance || {}).filter(key => key.endsWith('_leave'));
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold text-gray-800">Apply for Leave</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition-colors duration-300"
-              disabled={isSubmitting}
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 50
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '1rem',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '28rem',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '1.25rem',
+            fontWeight: '700',
+            color: '#1f2937',
+            marginBottom: '1rem'
+          }}
+        >
+          Apply for Leave
+        </h2>
+
+        {error && (
+          <p
+            style={{
+              color: '#ef4444',
+              fontSize: '0.875rem',
+              marginBottom: '0.5rem'
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Leave Type */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+              Leave Type
+            </label>
+            <select
+              name="leave_type"
+              value={form.leave_type}
+              onChange={handleChange}
+              style={{
+                marginTop: '0.25rem',
+                width: '100%',
+                borderRadius: '0.375rem',
+                border: '1px solid #d1d5db',
+                padding: '0.5rem',
+                fontSize: '1rem'
+              }}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+              {leaveTypes.map((type) => {
+                const shortType = type.replace('_leave', ''); // "sick_leave" -> "sick"
+                return (
+                  <option key={shortType} value={shortType}>
+                    {shortType.charAt(0).toUpperCase() + shortType.slice(1)}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg border border-red-100 animate-shake">
-              {error}
-            </div>
-          )}
+          {/* From Date */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+              From Date
+            </label>
+            <input
+              type="date"
+              name="from_date"
+              value={form.from_date}
+              onChange={handleChange}
+              style={{
+                marginTop: '0.25rem',
+                width: '100%',
+                borderRadius: '0.375rem',
+                border: '1px solid #d1d5db',
+                padding: '0.5rem',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-              <select
-                name="leave_type"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                value={form.leave_type}
-                onChange={handleChange}
-                required
-                disabled={isSubmitting}
-              >
-                <option value="sick">Sick Leave</option>
-                <option value="casual">Casual Leave</option>
-                <option value="paid">Paid Leave</option>
-                <option value="maternity">Maternity Leave</option>
-              </select>
-            </div>
+          {/* To Date */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+              To Date
+            </label>
+            <input
+              type="date"
+              name="to_date"
+              value={form.to_date}
+              onChange={handleChange}
+              style={{
+                marginTop: '0.25rem',
+                width: '100%',
+                borderRadius: '0.375rem',
+                border: '1px solid #d1d5db',
+                padding: '0.5rem',
+                fontSize: '1rem'
+              }}
+            />
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                <input
-                  type="date"
-                  name="from_date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  value={form.from_date}
-                  onChange={handleChange}
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                <input
-                  type="date"
-                  name="to_date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  value={form.to_date}
-                  onChange={handleChange}
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
-            </div>
+          {/* Reason */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
+              Reason
+            </label>
+            <textarea
+              name="reason"
+              value={form.reason}
+              onChange={handleChange}
+              style={{
+                marginTop: '0.25rem',
+                width: '100%',
+                borderRadius: '0.375rem',
+                border: '1px solid #d1d5db',
+                padding: '0.5rem',
+                fontSize: '1rem'
+              }}
+            ></textarea>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-              <textarea
-                name="reason"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                rows="3"
-                placeholder="Briefly explain the reason for your leave"
-                value={form.reason}
-                onChange={handleChange}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-300"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-300 flex items-center justify-center min-w-24"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Applying...
-                  </>
-                ) : 'Apply'}
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                backgroundColor: '#e5e7eb',
+                color: '#1f2937',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                backgroundColor: '#4f46e5',
+                color: '#fff',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

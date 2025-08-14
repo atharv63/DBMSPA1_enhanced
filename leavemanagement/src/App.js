@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import EmployeeDashboard from './components/EmployeeDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import RemainingLeaveBalance from './components/RemainingLeaveBalance';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -23,6 +24,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Login Route */}
         <Route
           path="/"
           element={
@@ -35,6 +37,8 @@ function App() {
             )
           }
         />
+
+        {/* Employee Dashboard */}
         <Route
           path="/employee"
           element={
@@ -49,12 +53,30 @@ function App() {
             )
           }
         />
+
+        {/* Admin Dashboard */}
         <Route
           path="/admin"
           element={
             user ? (
               user.role === 'admin' ? (
                 <AdminDashboard user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/employee" replace />
+              )
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        {/* Remaining Leave Balance Page (Admin Only) */}
+        <Route
+          path="/remainingleavebalance"
+          element={
+            user ? (
+              user.role === 'admin' ? (
+                <RemainingLeaveBalance user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/employee" replace />
               )

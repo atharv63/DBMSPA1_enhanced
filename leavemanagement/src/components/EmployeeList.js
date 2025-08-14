@@ -1,66 +1,172 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 function EmployeeList({ employees, onDelete }) {
-  if (employees.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No employees</h3>
-        <p className="mt-1 text-sm text-gray-500">Get started by adding a new employee.</p>
-      </div>
-    );
-  }
+  const [confirmPopup, setConfirmPopup] = useState({ show: false, id: null, name: '' });
+
+  const handleDeleteClick = (id, name) => {
+    setConfirmPopup({ show: true, id, name });
+  };
+
+  const confirmDelete = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/admin/employees/${confirmPopup.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Error deleting employee: ${err.error || res.statusText}`);
+        return;
+      }
+
+      onDelete(confirmPopup.id);
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete employee.');
+    } finally {
+      setConfirmPopup({ show: false, id: null, name: '' });
+    }
+  };
+
+  const cancelDelete = () => {
+    setConfirmPopup({ show: false, id: null, name: '' });
+  };
 
   return (
-    <div className="overflow-hidden border border-gray-200 rounded-lg">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {employees.map(employee => (
-            <tr key={employee.id} className="hover:bg-gray-50 transition-colors duration-150">
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 font-medium">
-                    {employee.name.charAt(0)}
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-sm font-medium text-gray-900">{employee.name}</div>
-                  </div>
-                </div>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{employee.email}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  employee.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {employee.role}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button
-                  onClick={() => onDelete(employee.id)}
-                  className="text-red-600 hover:text-red-900 transition-colors duration-300 flex items-center ml-auto"
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      {/* Employee Table */}
+      {employees.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '2.5rem' }}>
+          <h3>No employees found</h3>
+          <p>Add some employees to get started.</p>
+        </div>
+      ) : (
+        <div
+          style={{
+            overflowX: 'auto',
+            border: '1px solid #d1d5db',
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 15px rgba(0,0,0,0.1)',
+            backgroundColor: '#ffffff',
+            padding: '1rem'
+          }}
+        >
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#4338ca', marginBottom: '1rem' }}>
+            Employee Directory
+          </h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'linear-gradient(to right, #2563eb, #4f46e5)', color: '#ffffff' }}>
+                {['Name', 'Email', 'Role', 'Leaves Taken', 'Actions'].map((header) => (
+                  <th
+                    key={header}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      textAlign: header === 'Actions' ? 'right' : 'left',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
+                    }}
+                  >
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((employee) => (
+                <tr key={employee.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '1rem' }}>{employee.name}</td>
+                  <td style={{ padding: '1rem' }}>{employee.email}</td>
+                  <td style={{ padding: '1rem' }}>{employee.role}</td>
+                  <td style={{ padding: '1rem' }}>{employee.leaves_taken}</td>
+                  <td style={{ padding: '1rem', textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleDeleteClick(employee.id, employee.name)}
+                      style={{
+                        padding: '0.375rem 0.75rem',
+                        backgroundColor: '#ef4444',
+                        color: '#fff',
+                        borderRadius: '0.375rem',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Custom Confirmation Popup */}
+      {confirmPopup.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0, left: 0,
+            width: '100%', height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              padding: '2rem',
+              borderRadius: '0.5rem',
+              maxWidth: '400px',
+              width: '90%',
+              textAlign: 'center',
+              boxShadow: '0 10px 20px rgba(0,0,0,0.2)'
+            }}
+          >
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: '600' }}>
+              Confirm Deletion
+            </h3>
+            <p style={{ marginBottom: '1.5rem', color: '#4b5563' }}>
+              Are you sure you want to delete <strong>{confirmPopup.name}</strong>?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+              <button
+                onClick={confirmDelete}
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#fff',
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Delete
+              </button>
+              <button
+                onClick={cancelDelete}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: '#fff',
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
